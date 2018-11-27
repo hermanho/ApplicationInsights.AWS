@@ -4,6 +4,17 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>ApplicationInsights.AWS</AssemblyName>
     <RootNamespace>ApplicationInsights.AWS</RootNamespace>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/hermanho/ApplicationInsights.AWS</RepositoryUrl>
+    <IncludeSymbols>True</IncludeSymbols>
+    <PackageProjectUrl>https://github.com/hermanho/ApplicationInsights.AWS</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/hermanho/ApplicationInsights.AWS</RepositoryUrl>
+    <CommitHash></CommitHash>
+    <GenerateCommitHashAttribute>true</GenerateCommitHashAttribute>
+    <GeneratedCommitHashAttributeFile></GeneratedCommitHashAttributeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +32,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>
