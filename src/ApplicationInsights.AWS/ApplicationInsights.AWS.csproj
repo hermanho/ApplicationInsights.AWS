@@ -4,6 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>ApplicationInsights.AWS</AssemblyName>
     <RootNamespace>ApplicationInsights.AWS</RootNamespace>
+    <VersionPrefix>1.0.0</VersionPrefix>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/hermanho/ApplicationInsights.AWS</RepositoryUrl>
     <IncludeSymbols>True</IncludeSymbols>
