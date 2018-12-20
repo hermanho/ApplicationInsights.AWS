@@ -10,7 +10,7 @@ install:
       git config --global core.autocrlf input
       
       #Get Path to csproj
-      $path = ".\src\ApplicationInsights.Aws\ApplicationInsights.Aws.csproj"
+      $path = ".\src\ApplicationInsights.AWS\ApplicationInsights.AWS.csproj"
 
       #Read csproj (XML)
       $xml = [xml](Get-Content $path)
