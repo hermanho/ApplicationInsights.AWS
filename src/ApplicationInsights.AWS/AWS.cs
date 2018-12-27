@@ -711,6 +711,7 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    _logger.LogError(e, e.Message);
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
@@ -817,6 +818,8 @@ namespace ApplicationInsights.AWS
             pipeline.AddHandlerAfter<EndpointResolver>(handler1);
             var handler2 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
             pipeline.AddHandlerAfter<RetryHandler>(handler2);
+            var handler3 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
+            pipeline.AddHandlerBefore<RetryHandler>(handler2);
         }
 
         private bool ProcessType(Type serviceClientType, bool addCustomization)
