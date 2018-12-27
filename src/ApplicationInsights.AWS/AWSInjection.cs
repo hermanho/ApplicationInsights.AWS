@@ -36,6 +36,7 @@ namespace ApplicationInsights.AWS
                 services.AddTransient<IStartupFilter, AWSStartupFilter>();
                 services.AddSingleton<ApplicationInsightsPipelineCustomizer>();
                 services.AddSingleton<ApplicationInsightsPipelineHandler>();
+                services.AddSingleton<ApplicationInsightsExceptionsPipelineHandler>();
                 services.Configure<ApplicationInsightsPipelineOption>(option =>
                 {
                     option.RegisterAll = true;

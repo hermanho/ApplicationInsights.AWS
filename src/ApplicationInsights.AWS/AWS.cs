@@ -268,6 +268,7 @@ namespace ApplicationInsights.AWS
                 var serviceName = RemoveAmazonPrefixFromServiceName(requestContext.Request.ServiceName);
                 var operation = RemoveSuffix(requestContext.OriginalRequest.GetType().Name, "Request");
 
+                operationHolder.Telemetry.Name = operation;
                 operationHolder.Telemetry.Properties["region"] = client.RegionEndpoint?.SystemName;
                 operationHolder.Telemetry.Properties["operation"] = operation;
                 if (responseContext.Response == null)
@@ -293,7 +294,6 @@ namespace ApplicationInsights.AWS
                 else
                 {
                     operationHolder.Telemetry.Properties["request_id"] = responseContext.Response.ResponseMetadata.RequestId;
-                    operationHolder.Telemetry.Properties["request_id"] = responseContext.Response.ResponseMetadata.RequestId;
                     AddResponseSpecificInformation(serviceName, operation, responseContext.Response, operationHolder.Telemetry.Properties);
                 }
 
@@ -310,7 +310,6 @@ namespace ApplicationInsights.AWS
 
         private void AddHttpInformation(DependencyTelemetry telemetry, IWebResponseData httpResponse)
         {
-            var responseAttributes = new Dictionary<string, object>();
             int statusCode = (int)httpResponse.StatusCode;
             if (statusCode >= 400 && statusCode <= 499)
             {
@@ -325,9 +324,8 @@ namespace ApplicationInsights.AWS
                 telemetry.Success = false;
             }
 
-            responseAttributes["status"] = statusCode;
-            responseAttributes["content_length"] = httpResponse.ContentLength;
-            telemetry.Properties["aws http response"] = JsonConvert.SerializeObject(responseAttributes);
+            telemetry.Properties["aws http status"] = statusCode.ToString();
+            telemetry.Properties["aws http content_length"] = httpResponse.ContentLength.ToString();
         }
 
         private void ProcessException(DependencyTelemetry telemetry, AmazonServiceException ex)
@@ -348,10 +346,15 @@ namespace ApplicationInsights.AWS
                 telemetry.Success = false;
             }
 
-            responseAttributes["status"] = statusCode;
-            telemetry.Properties["aws http response"] = JsonConvert.SerializeObject(responseAttributes);
-
             telemetry.Properties["request_id"] = ex.RequestId;
+            telemetry.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
+            telemetry.Properties["aws http errorCode"] = ex.ErrorCode;
+
+            ExceptionTelemetry telemetryEx = new ExceptionTelemetry(ex);
+            telemetryEx.Properties["request_id"] = ex.RequestId;
+            telemetryEx.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
+            telemetryEx.Properties["aws http errorCode"] = ex.ErrorCode;
+            _telemetryClient.TrackException(telemetryEx);
         }
 
         private void AddRequestSpecificInformation(string serviceName, string operation, AmazonWebServiceRequest request, IDictionary<string, string> aws)
@@ -508,19 +511,19 @@ namespace ApplicationInsights.AWS
                 {
                     base.InvokeSync(executionContext);
                 }
-
                 catch (Exception e)
                 {
                     _telemetryClient.TrackException(e);
-
                     if (e is AmazonServiceException amazonServiceException)
                     {
                         ProcessException(operationHolder.Telemetry, amazonServiceException);
                     }
-
+                    else
+                    {
+                        _telemetryClient.TrackException(e);
+                    }
                     throw;
                 }
-
                 finally
                 {
                     ProcessEndRequest(operationHolder, executionContext);
@@ -571,26 +574,231 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
-                    _telemetryClient.TrackException(e);
-
                     if (e is AmazonServiceException amazonServiceException)
                     {
                         ProcessException(operationHolder.Telemetry, amazonServiceException);
                     }
-
+                    else
+                    {
+                        _telemetryClient.TrackException(e);
+                    }
                     throw;
                 }
-
                 finally
                 {
                     ProcessEndRequest(operationHolder, executionContext);
                 }
-
             }
 
             return ret;
         }
     }
+
+    public class ApplicationInsightsExceptionsPipelineHandler : PipelineHandler
+    {
+        private const string DefaultAwsWhitelistManifestResourceName = "ApplicationInsights.AWS.DefaultAWSWhitelist.json";
+        private const string S3RequestIdHeaderKey = "x-amz-request-id";
+        private const string S3ExtendedRequestIdHeaderKey = "x-amz-id-2";
+        private const string ExtendedRquestIdSegmentKey = "id_2";
+
+        private TelemetryClient _telemetryClient;
+        private ILogger<ApplicationInsightsExceptionsPipelineHandler> _logger;
+        private JsonSerializerSettings _jsonSerializerSettings;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ApplicationInsightsPipelineHandler" /> class.
+        /// </summary>
+        public ApplicationInsightsExceptionsPipelineHandler(ILogger<ApplicationInsightsExceptionsPipelineHandler> logger,
+            TelemetryClient telemetryClient)
+        {
+            _telemetryClient = telemetryClient;
+            _logger = logger;
+            
+            _jsonSerializerSettings = new JsonSerializerSettings();
+            _jsonSerializerSettings.ContractResolver = new SimpleTypeContractResolver();
+            _jsonSerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
+            _jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        }
+
+        private bool TryReadPropertyValue(object obj, string propertyName, out object value)
+        {
+            value = 0;
+
+            try
+            {
+                if (obj == null || propertyName == null)
+                {
+                    return false;
+                }
+
+                var property = obj.GetType().GetProperty(propertyName);
+
+                if (property == null)
+                {
+                    _logger.LogDebug("Property doesn't exist. {0}", propertyName);
+                    return false;
+                }
+
+                value = property.GetValue(obj);
+                return true;
+            }
+            catch (ArgumentNullException e)
+            {
+                _logger.LogError(e, "Failed to read property because argument is null.");
+                return false;
+            }
+            catch (AmbiguousMatchException e)
+            {
+                _logger.LogError(e, "Failed to read property because of duplicate property name.");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Removes amazon prefix from service name. There are two type of service name.
+        ///     Amazon.DynamoDbV2
+        ///     AmazonS3
+        /// </summary>
+        /// <param name="serviceName">Name of the service.</param>
+        /// <returns>String after removing Amazon prefix.</returns>
+        private static string RemoveAmazonPrefixFromServiceName(string serviceName)
+        {
+            return RemovePrefix(RemovePrefix(serviceName, "Amazon"), ".");
+        }
+
+        private static string RemovePrefix(string originalString, string prefix)
+        {
+            if (prefix == null)
+            {
+                throw new ArgumentNullException("prefix");
+            }
+
+            if (originalString == null)
+            {
+                throw new ArgumentNullException("originalString");
+            }
+
+            if (originalString.StartsWith(prefix))
+            {
+                return originalString.Substring(prefix.Length);
+            }
+
+            return originalString;
+        }
+
+        private static string RemoveSuffix(string originalString, string suffix)
+        {
+            if (suffix == null)
+            {
+                throw new ArgumentNullException("suffix");
+            }
+
+            if (originalString == null)
+            {
+                throw new ArgumentNullException("originalString");
+            }
+
+            if (originalString.EndsWith(suffix))
+            {
+                return originalString.Substring(0, originalString.Length - suffix.Length);
+            }
+
+            return originalString;
+        }
+                
+        private void ProcessException(AmazonServiceException ex)
+        {
+            ExceptionTelemetry telemetry = new ExceptionTelemetry(ex);
+            telemetry.Properties["request_id"] = ex.RequestId;
+            telemetry.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
+            telemetry.Properties["aws http errorCode"] = ex.ErrorCode;
+            _telemetryClient.TrackException(telemetry);
+        }
+
+        public override void InvokeSync(IExecutionContext executionContext)
+        {
+            if (ExcludeServiceOperation(executionContext))
+            {
+                base.InvokeSync(executionContext);
+            }
+            else
+            {
+                try
+                {
+                    base.InvokeSync(executionContext);
+                }
+                catch (Exception e)
+                {
+                    if (e is AmazonServiceException amazonServiceException)
+                    {
+                        ProcessException(amazonServiceException);
+                    }
+                    else
+                    {
+                        _telemetryClient.TrackException(e);
+                    }
+                    throw;
+                }
+            }
+        }
+
+        //https://github.com/aws/aws-xray-sdk-dotnet/blob/994c27f173a53060398d27f80fbe4f101d2497aa/sdk/src/Handlers/AwsSdk/Internal/AWSXRaySDKUtils.cs
+        private static readonly string XRayServiceName = "XRay";
+        private static readonly ISet<string> WhitelistedOperations = new HashSet<string> { "GetSamplingRules", "GetSamplingTargets" };
+        internal static bool IsBlacklistedOperation(string serviceName, string operation)
+        {
+            if (string.Equals(serviceName, XRayServiceName) && WhitelistedOperations.Contains(operation))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private bool ExcludeServiceOperation(IExecutionContext executionContext)
+        {
+            var requestContext = executionContext.RequestContext;
+            var serviceName = RemoveAmazonPrefixFromServiceName(requestContext.Request.ServiceName);
+            var operation = RemoveSuffix(requestContext.OriginalRequest.GetType().Name, "Request");
+
+            return IsBlacklistedOperation(serviceName, operation);
+        }
+
+        /// <summary>
+        /// Process Asynchronous <see cref="AmazonServiceClient"/> operations. A subsegment is started at the beginning of 
+        /// the request and ended at the end of the request.
+        /// </summary>
+        public override async Task<T> InvokeAsync<T>(IExecutionContext executionContext)
+        {
+            T ret = null;
+
+            if (ExcludeServiceOperation(executionContext))
+            {
+                ret = await base.InvokeAsync<T>(executionContext).ConfigureAwait(false);
+            }
+            else
+            {
+                try
+                {
+                    ret = await base.InvokeAsync<T>(executionContext).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    if (e is AmazonServiceException amazonServiceException)
+                    {
+                        ProcessException(amazonServiceException);
+                    }
+                    else
+                    {
+                        _telemetryClient.TrackException(e);
+                    }
+                    throw;
+                }
+            }
+
+            return ret;
+        }
+    }
+
 
     public class ApplicationInsightsPipelineOption
     {
@@ -627,9 +835,10 @@ namespace ApplicationInsights.AWS
                 addCustomization = ProcessType(serviceClientType, addCustomization);
             }
 
-            var handler = _serviceProvider.GetRequiredService<ApplicationInsightsPipelineHandler>();
-
-            pipeline.AddHandlerAfter<EndpointResolver>(handler);
+            var handler1 = _serviceProvider.GetRequiredService<ApplicationInsightsPipelineHandler>();
+            pipeline.AddHandlerAfter<EndpointResolver>(handler1);
+            var handler2 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
+            pipeline.AddHandlerBefore<RetryHandler>(handler2);
         }
 
         private bool ProcessType(Type serviceClientType, bool addCustomization)
