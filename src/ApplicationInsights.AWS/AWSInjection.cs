@@ -18,9 +18,7 @@ namespace ApplicationInsights.AWS
         {
             return builder =>
             {
-                var environment = builder.ApplicationServices.GetRequiredService<IHostingEnvironment>();
                 var customizer = builder.ApplicationServices.GetRequiredService<ApplicationInsightsPipelineCustomizer>();
-                var options = builder.ApplicationServices.GetRequiredService<IOptions<ApplicationInsightsPipelineOption>>();
                 Amazon.Runtime.Internal.RuntimePipelineCustomizerRegistry.Instance.Register(customizer);
                 next(builder);
             };
@@ -29,18 +27,24 @@ namespace ApplicationInsights.AWS
 
     public static class AWSInjection
     {
+        public static IServiceCollection AddAWSInjection(this IServiceCollection services)
+        {
+            services.AddTransient<IStartupFilter, AWSStartupFilter>();
+            services.AddSingleton<ApplicationInsightsPipelineCustomizer>();
+            services.AddTransient<ApplicationInsightsPipelineHandler>();
+            services.AddTransient<ApplicationInsightsExceptionsPipelineHandler>();
+            services.Configure<ApplicationInsightsPipelineOption>(option =>
+            {
+                option.RegisterAll = true;
+            });
+            return services;
+        }
+
         public static IWebHostBuilder UseApplicationInsightsAWSInjection(this IWebHostBuilder builder)
         {
             return builder.ConfigureServices((IServiceCollection services) =>
             {
-                services.AddTransient<IStartupFilter, AWSStartupFilter>();
-                services.AddSingleton<ApplicationInsightsPipelineCustomizer>();
-                services.AddTransient<ApplicationInsightsPipelineHandler>();
-                services.AddTransient<ApplicationInsightsExceptionsPipelineHandler>();
-                services.Configure<ApplicationInsightsPipelineOption>(option =>
-                {
-                    option.RegisterAll = true;
-                });
+                services.AddAWSInjection();
             });
         }
     }

@@ -324,6 +324,7 @@ namespace ApplicationInsights.AWS
                 telemetry.Success = false;
             }
 
+            telemetry.Properties["resultCode"] = statusCode.ToString();
             telemetry.Properties["aws http status"] = statusCode.ToString();
             telemetry.Properties["aws http content_length"] = httpResponse.ContentLength.ToString();
         }
@@ -344,6 +345,7 @@ namespace ApplicationInsights.AWS
             {
             }
 
+            telemetry.Properties["resultCode"] = statusCode.ToString();
             telemetry.Properties["request_id"] = ex.RequestId;
             telemetry.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
             telemetry.Properties["aws http errorCode"] = ex.ErrorCode;
@@ -692,6 +694,8 @@ namespace ApplicationInsights.AWS
 
         private void ProcessException(ExceptionTelemetry telemetry, AmazonServiceException ex)
         {
+            int statusCode = (int)ex.StatusCode;
+            telemetry.Properties["resultCode"] = statusCode.ToString();
             telemetry.Properties["request_id"] = ex.RequestId;
             telemetry.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
             telemetry.Properties["aws http errorCode"] = ex.ErrorCode;
@@ -764,6 +768,7 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    _logger.LogError(e, e.Message);
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
@@ -818,8 +823,6 @@ namespace ApplicationInsights.AWS
             pipeline.AddHandlerAfter<EndpointResolver>(handler1);
             var handler2 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
             pipeline.AddHandlerAfter<RetryHandler>(handler2);
-            var handler3 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
-            pipeline.AddHandlerBefore<RetryHandler>(handler2);
         }
 
         private bool ProcessType(Type serviceClientType, bool addCustomization)
