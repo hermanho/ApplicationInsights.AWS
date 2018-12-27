@@ -513,7 +513,7 @@ namespace ApplicationInsights.AWS
                     {
                         ProcessException(telemetry, amazonServiceException);
                     }
-                    _telemetryClient.TrackException(e);
+                    _telemetryClient.TrackException(telemetry);
                     throw;
                 }
                 finally
@@ -572,7 +572,7 @@ namespace ApplicationInsights.AWS
                     {
                         ProcessException(telemetry, amazonServiceException);
                     }
-                    _telemetryClient.TrackException(e);
+                    _telemetryClient.TrackException(telemetry);
                     throw;
                 }
                 finally
@@ -773,7 +773,7 @@ namespace ApplicationInsights.AWS
                     {
                         ProcessException(telemetry, amazonServiceException);
                     }
-                    _telemetryClient.TrackException(e);
+                    _telemetryClient.TrackException(telemetry);
                     throw;
                 }
             }
