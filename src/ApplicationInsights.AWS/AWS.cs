@@ -328,14 +328,13 @@ namespace ApplicationInsights.AWS
             telemetry.Properties["aws http content_length"] = httpResponse.ContentLength.ToString();
         }
 
-        private void ProcessException(DependencyTelemetry telemetry, AmazonServiceException ex)
+        private void ProcessException(ExceptionTelemetry telemetry, AmazonServiceException ex)
         {
             int statusCode = (int)ex.StatusCode;
             var responseAttributes = new Dictionary<string, object>();
 
             if (statusCode >= 400 && statusCode <= 499)
             {
-                telemetry.Success = false;
                 if (statusCode == 429)
                 {
                     telemetry.Properties["Throttle"] = "true";
@@ -343,18 +342,11 @@ namespace ApplicationInsights.AWS
             }
             else if (statusCode >= 500 && statusCode <= 599)
             {
-                telemetry.Success = false;
             }
 
             telemetry.Properties["request_id"] = ex.RequestId;
             telemetry.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
             telemetry.Properties["aws http errorCode"] = ex.ErrorCode;
-
-            ExceptionTelemetry telemetryEx = new ExceptionTelemetry(ex);
-            telemetryEx.Properties["request_id"] = ex.RequestId;
-            telemetryEx.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
-            telemetryEx.Properties["aws http errorCode"] = ex.ErrorCode;
-            _telemetryClient.TrackException(telemetryEx);
         }
 
         private void AddRequestSpecificInformation(string serviceName, string operation, AmazonWebServiceRequest request, IDictionary<string, string> aws)
@@ -513,15 +505,13 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
-                    _telemetryClient.TrackException(e);
+                    operationHolder.Telemetry.Success = false;
+                    ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
-                        ProcessException(operationHolder.Telemetry, amazonServiceException);
+                        ProcessException(telemetry, amazonServiceException);
                     }
-                    else
-                    {
-                        _telemetryClient.TrackException(e);
-                    }
+                    _telemetryClient.TrackException(e);
                     throw;
                 }
                 finally
@@ -574,14 +564,13 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    operationHolder.Telemetry.Success = false;
+                    ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
-                        ProcessException(operationHolder.Telemetry, amazonServiceException);
+                        ProcessException(telemetry, amazonServiceException);
                     }
-                    else
-                    {
-                        _telemetryClient.TrackException(e);
-                    }
+                    _telemetryClient.TrackException(e);
                     throw;
                 }
                 finally
@@ -596,11 +585,6 @@ namespace ApplicationInsights.AWS
 
     public class ApplicationInsightsExceptionsPipelineHandler : PipelineHandler
     {
-        private const string DefaultAwsWhitelistManifestResourceName = "ApplicationInsights.AWS.DefaultAWSWhitelist.json";
-        private const string S3RequestIdHeaderKey = "x-amz-request-id";
-        private const string S3ExtendedRequestIdHeaderKey = "x-amz-id-2";
-        private const string ExtendedRquestIdSegmentKey = "id_2";
-
         private TelemetryClient _telemetryClient;
         private ILogger<ApplicationInsightsExceptionsPipelineHandler> _logger;
         private JsonSerializerSettings _jsonSerializerSettings;
@@ -613,7 +597,7 @@ namespace ApplicationInsights.AWS
         {
             _telemetryClient = telemetryClient;
             _logger = logger;
-            
+
             _jsonSerializerSettings = new JsonSerializerSettings();
             _jsonSerializerSettings.ContractResolver = new SimpleTypeContractResolver();
             _jsonSerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
@@ -705,14 +689,12 @@ namespace ApplicationInsights.AWS
 
             return originalString;
         }
-                
-        private void ProcessException(AmazonServiceException ex)
+
+        private void ProcessException(ExceptionTelemetry telemetry, AmazonServiceException ex)
         {
-            ExceptionTelemetry telemetry = new ExceptionTelemetry(ex);
             telemetry.Properties["request_id"] = ex.RequestId;
             telemetry.Properties["aws http status"] = ((int)ex.StatusCode).ToString();
             telemetry.Properties["aws http errorCode"] = ex.ErrorCode;
-            _telemetryClient.TrackException(telemetry);
         }
 
         public override void InvokeSync(IExecutionContext executionContext)
@@ -729,14 +711,12 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
-                        ProcessException(amazonServiceException);
+                        ProcessException(telemetry, amazonServiceException);
                     }
-                    else
-                    {
-                        _telemetryClient.TrackException(e);
-                    }
+                    _telemetryClient.TrackException(telemetry);
                     throw;
                 }
             }
@@ -783,14 +763,12 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
-                        ProcessException(amazonServiceException);
+                        ProcessException(telemetry, amazonServiceException);
                     }
-                    else
-                    {
-                        _telemetryClient.TrackException(e);
-                    }
+                    _telemetryClient.TrackException(e);
                     throw;
                 }
             }
@@ -809,7 +787,7 @@ namespace ApplicationInsights.AWS
     //https://github.com/aws/aws-xray-sdk-dotnet/blob/5aa148b5167ac2b63759efeafc641e5a0e0718c9/sdk/src/Handlers/AwsSdk/Internal/XRayPipelineHandler.cs#L621
     public class ApplicationInsightsPipelineCustomizer : IRuntimePipelineCustomizer
     {
-        public string UniqueName { get { return "X-Ray Registration Customization"; } }
+        public string UniqueName { get { return "ApplicationInsightsPipeline Registration Customization"; } }
 
         private List<Type> types = new List<Type>();
         private ReaderWriterLockSlim rwLock = new ReaderWriterLockSlim();
