@@ -590,10 +590,7 @@ namespace ApplicationInsights.AWS
         private TelemetryClient _telemetryClient;
         private ILogger<ApplicationInsightsExceptionsPipelineHandler> _logger;
         private JsonSerializerSettings _jsonSerializerSettings;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ApplicationInsightsPipelineHandler" /> class.
-        /// </summary>
+        
         public ApplicationInsightsExceptionsPipelineHandler(ILogger<ApplicationInsightsExceptionsPipelineHandler> logger,
             TelemetryClient telemetryClient)
         {
@@ -821,6 +818,7 @@ namespace ApplicationInsights.AWS
 
             var handler1 = _serviceProvider.GetRequiredService<ApplicationInsightsPipelineHandler>();
             pipeline.AddHandlerAfter<EndpointResolver>(handler1);
+
             var handler2 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
             pipeline.AddHandlerAfter<RetryHandler>(handler2);
         }
