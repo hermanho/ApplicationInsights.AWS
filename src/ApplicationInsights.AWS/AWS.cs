@@ -712,6 +712,7 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    _logger.LogError(e.GetType().FullName);
                     _logger.LogError(e, e.Message);
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
@@ -765,6 +766,7 @@ namespace ApplicationInsights.AWS
                 }
                 catch (Exception e)
                 {
+                    _logger.LogError(e.GetType().FullName);
                     _logger.LogError(e, e.Message);
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
