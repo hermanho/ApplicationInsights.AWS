@@ -838,7 +838,7 @@ namespace ApplicationInsights.AWS
             var handler1 = _serviceProvider.GetRequiredService<ApplicationInsightsPipelineHandler>();
             pipeline.AddHandlerAfter<EndpointResolver>(handler1);
             var handler2 = _serviceProvider.GetRequiredService<ApplicationInsightsExceptionsPipelineHandler>();
-            pipeline.AddHandlerBefore<RetryHandler>(handler2);
+            pipeline.AddHandlerAfter<RetryHandler>(handler2);
         }
 
         private bool ProcessType(Type serviceClientType, bool addCustomization)
