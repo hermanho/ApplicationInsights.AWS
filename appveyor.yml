@@ -23,7 +23,8 @@ install:
       }
       elseif([System.String]::IsNullOrEmpty($env:APPVEYOR_PULL_REQUEST_NUMBER) -eq $true) {
         $commit = $env:APPVEYOR_REPO_COMMIT.substring(0,7)
-        Update-AppveyorBuild -Version "$versionPrefix-$env:APPVEYOR_BUILD_NUMBER-$commit"
+        $today = Get-Date -format "yyyyMMdd"
+        Update-AppveyorBuild -Version "$versionPrefix-$today.$env:APPVEYOR_BUILD_NUMBER-$commit"
       }
 init:
 dotnet_csproj:
