@@ -511,6 +511,7 @@ namespace ApplicationInsights.AWS
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
+                        telemetry = new ExceptionTelemetry(amazonServiceException);
                         ProcessException(telemetry, amazonServiceException);
                     }
                     _telemetryClient.TrackException(telemetry);
@@ -570,6 +571,7 @@ namespace ApplicationInsights.AWS
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
+                        telemetry = new ExceptionTelemetry(amazonServiceException);
                         ProcessException(telemetry, amazonServiceException);
                     }
                     _telemetryClient.TrackException(telemetry);
@@ -717,6 +719,7 @@ namespace ApplicationInsights.AWS
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
+                        telemetry = new ExceptionTelemetry(amazonServiceException);
                         ProcessException(telemetry, amazonServiceException);
                     }
                     _telemetryClient.TrackException(telemetry);
@@ -771,6 +774,7 @@ namespace ApplicationInsights.AWS
                     ExceptionTelemetry telemetry = new ExceptionTelemetry(e);
                     if (e is AmazonServiceException amazonServiceException)
                     {
+                        telemetry = new ExceptionTelemetry(amazonServiceException);
                         ProcessException(telemetry, amazonServiceException);
                     }
                     _telemetryClient.TrackException(telemetry);
