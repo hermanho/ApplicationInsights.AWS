@@ -19,19 +19,11 @@ Install from Nuget and search "ApplicationInsights.AWS"
 
 
 ## Setup
-Add "UseApplicationInsightsAWSInjection()" in CreateWebHostBuilder
+Add "AddAWSInjection()" in ConfigureServices
 ```
-public class Program
+public void ConfigureServices(IServiceCollection services)
 {
-    public static void Main(string[] args)
-    {
-        CreateWebHostBuilder(args).Build().Run();
-    }
-
-    public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
-        WebHost.CreateDefaultBuilder(args)
-        .UseApplicationInsights()
-        .UseApplicationInsightsAWSInjection()
-        .UseStartup<Startup>();
+    services.AddApplicationInsightsTelemetry();
+    services.AddAWSInjection();
 }
 ```
